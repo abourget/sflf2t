@@ -1,0 +1,29 @@
+#
+# Personal settings
+#
+settings:
+  ics: https://mail.savoirfairelinux.com/home/alexandre.bourget@savoirfairelinux.com/Calendar
+  zimbra_login: alexandre.bourget
+  private_login: abourget
+  private_id: 69  # id_agent
+#
+# proj, vente, rh, support, 
+#
+defs:
+  vente: {cie: 57, type: vente}
+  retd: {cie: 57, type: retd}
+  nps: {cie: 819, type: proj}
+  ithq: {cie: 842, type: proj}
+  udem: {cie: 774, type: bh, bh: 131}
+#
+# Heures
+#
+# --- REWRITE POINT --- Sous cette ligne il y a réécriture automatique
+#
+heures:
+  2011-06-13:
+    - 1, vente, inventionMedia, etc..
+    - 2.5, nps, Meeting
+    - 3.5, retd, SFLvault, etc..
+  2011-06-14:
+    - 7.5 retd, SFLvault, etc..

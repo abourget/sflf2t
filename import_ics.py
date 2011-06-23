@@ -1,4 +1,6 @@
+# -=- encoding: utf-8 -=-
 import vobject
+import re
 import requests
 from getpass import getpass
 import calendar
@@ -6,7 +8,7 @@ from datetime import *
 import sys
 
 def get_ics():
-    passwd = getpass()
+    passwd = getpass('Zimbra password: ')
     r = requests.get('https://mail.savoirfairelinux.com/home/alexandre.bourget@savoirfairelinux.com/Calendar',
                      auth=('alexandre.bourget', passwd))
     if r.status_code != 200:
@@ -41,10 +43,6 @@ def get_week_span():
     return (monday_time, monday_time + timedelta(7, -1))
 
 
-week_start, week_end = get_week_span()
-ics = get_ics()
-
-
 def get_this_week_events(ics, week_start, week_end):
     events = []
     for vevent in ics.vevent_list:
@@ -68,3 +66,151 @@ def get_this_week_events(ics, week_start, week_end):
         delta = ev.dtend.value - ev.dtstart.value
         hours = delta.seconds / 3600.0
         print "  Time:", hours, "hours"
+
+
+#week_start, week_end = get_week_span()
+#ics = get_ics()
+#get_this_week_events(ics, week_start, week_end)
+
+
+
+
+
+
+types = {
+    'achat': "Achats",
+    'affectation': "Affectation",
+    'consultation': "Affectation",
+    'aff': "Affectation",
+    'cons': "Affectation",
+    'bh': "Banque d'heures",
+    'banque': "Banque d'heures",
+    'comm': "Communication",
+    'com': "Communication",
+    'conge': "Congés",
+    'ferie': "Férié",
+    'finance': "Finances",
+    'cours': "Formation",
+    'cour': "Formation",
+    'formation': "Formation",
+    'malade': "Maladie",
+    'maladie': "Maladie",
+    'p': "Projets",
+    'proj': "Projets",
+    'projet': "Projets",
+    'qual': "Qualité",
+    'qualite': "Qualité",
+    'retd': "R et D",
+    'r&d': "R et D",
+    'rd': "R et D",
+    'rh': "RH",
+    'sup': "Support",
+    'support': "Support",
+    's': "Support",
+    'vente': "Ventes",
+    'v': "Ventes",
+    }
+
+
+yaml_line_re = re.compile(r"([\d\.]+)[, ]*([a-z]+)[, ]*(.*)")
+def parse_yaml_line(line, defs):
+    """Return a tuple in the form: (hours, settings, details)"""
+
+    m = yaml_line_re.search(line)
+    if not m:
+        raise ValueError("Line '%s' doesn't match our line pattern!\n"
+                         "Should look like: '5.0, vente, Some random comments'"%
+                         line)
+    hours = m.group(1)
+    mytype = m.group(2)
+    details = m.group(3)
+    if mytype not in defs:
+        raise ValueError("Type specified is not in 'defs' section: %s" % mytype)
+    mydef = defs[mytype]
+    return (hours,
+            mydef['cie'],
+            types[mydef['type']],
+            mydef.get('bh', None),
+            details)
+
+class F2T(object):
+    def __init__(self, filename='f2t.yaml'):
+        import yaml
+        data = self.data = yaml.load(open(filename).read())
+        sections = ['heures', 'defs', 'settings']
+        for sec in sections:
+            if sec not in data:
+                print "Section '%s' manquante du fichier .yaml" % sec
+                sys.exit(1)
+
+        # Get mes types
+        defs = data['defs']
+        for d in defs:
+            val = defs[d]
+            if val['type'] not in types:
+                raise ValueError("In section 'defs', type=%s is an unknown type" %
+                                 val['type'])
+
+        # Check settings
+        settings = self.settings = data['settings']
+        sections = ['private_id', 'zimbra_login', 'private_login', 'ics']
+        for sec in sections:
+            if sec not in settings:
+                print "Missing key: %s in 'settings' section of yaml file." % sec
+                sys.exit(1)
+
+        output = []
+
+        # On assume une structure correcte
+        heures = data['heures']
+        for dt in sorted(heures):
+            els = heures[dt]
+            for el in els:
+                hours, cie, typ, bh, details = parse_yaml_line(el, defs)
+                output.append((dt, hours, cie, typ, bh, details))
+
+        self.entries = output
+    
+    def post_f2t(self):
+        import requests
+        passwd = getpass("Enter your 'private' (LDAP) password: ")
+        url = "https://private.savoirfairelinux.com/f2t-ym.php"
+        print "Using URL:", url
+        for entry in self.entries:
+            
+            print "Posting entry", entry
+            data = {'action': 'ajouter',
+                    'date': entry[0].strftime("%Y/%m/%d"),
+                    'create_clientSelect': entry[2],
+                    'create_typeSelect': entry[3],
+                    'details': entry[5],
+                    'create_banqueSelect': entry[4] or '',
+                    'nbheures': entry[1],
+                    'dimanche': '9999/99/99',
+                    }
+            print data
+            r = requests.post(url,
+                              data=data,
+                              params={'idagent': self.settings['private_id'],
+                                      'action': 'ajouter'},
+                              auth=(self.settings['private_login'], passwd))
+            self.req = r
+            print r
+    # champs à envoyer:
+    # https://private.savoirfairelinux.com/f2t-ym.php?idagent=69
+    # POST, + auth
+    # action = "ajouter"
+    # date = "2011/06/15"
+    # create_clientSelect = 774
+    # create_typeSelect = Banque d'heures
+    # create_banqueSelect = 131
+    # details = "TEST"
+    # nbheures = "0"
+
+try:
+    f2t = F2T()
+except ValueError, e:
+    print "ERROR:", e
+    sys.exit(1)
+
+f2t.post_f2t()
