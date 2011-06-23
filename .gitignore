@@ -1,0 +1,20 @@
+env
+*~
+*.pyc
+pip-log.txt
+data/
+\#*
+.\#*
+ITHQ.egg-info
+
+# Personal config file
+development.ini
+
+# Deb releasing stuff
+deploy/debian/ithq/*
+deploy/debian/ithq.*.*
+deploy/debian/ithq.substvars
+deploy/debian/files
+deploy/tmp/
+ithq_*changes
+ithq_*deb
