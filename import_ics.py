@@ -188,24 +188,13 @@ class F2T(object):
                     'nbheures': entry[1],
                     'dimanche': '9999/99/99',
                     }
-            print data
             r = requests.post(url,
                               data=data,
                               params={'idagent': self.settings['private_id'],
                                       'action': 'ajouter'},
                               auth=(self.settings['private_login'], passwd))
             self.req = r
-            print r
-    # champs à envoyer:
-    # https://private.savoirfairelinux.com/f2t-ym.php?idagent=69
-    # POST, + auth
-    # action = "ajouter"
-    # date = "2011/06/15"
-    # create_clientSelect = 774
-    # create_typeSelect = Banque d'heures
-    # create_banqueSelect = 131
-    # details = "TEST"
-    # nbheures = "0"
+        print "Done"
 
 try:
     f2t = F2T()

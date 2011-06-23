@@ -12,18 +12,30 @@ settings:
 defs:
   vente: {cie: 57, type: vente}
   retd: {cie: 57, type: retd}
+  rh: {cie: 57, type: rh}
+  gestion: {cie: 57, type: proj}
   nps: {cie: 819, type: proj}
   ithq: {cie: 842, type: proj}
   udem: {cie: 774, type: bh, bh: 131}
+  formation: {cie: 57, type: formation}
+  ferie: {cie: 57, type: ferie}
+  direction: {cie: 57, type: comm}
 #
 # Heures
 #
 # --- REWRITE POINT --- Sous cette ligne il y a réécriture automatique
 #
 heures:
-  2011-06-13:
-    - 1, vente, inventionMedia, etc..
-    - 2.5, nps, Meeting
-    - 3.5, retd, SFLvault, etc..
-  2011-06-14:
-    - 7.5 retd, SFLvault, etc..
+  2011-06-20:
+   - 1, nps, Sprint Review
+   - 1.5, direction, Comité de dir.
+   - 5, formation, Préparation du cours WEB-501
+  2011-06-21:
+   - 9, formation, SRAM, Web 501
+  2011-06-22:
+   - 8.5, formation, SRAM, Web 501
+  2011-06-23:
+   - 8.5, gestion, Planification, Embauche, suivi, vente, aboily, étienne
+  2011-06-24:
+   - 7.5, ferie, St-Jean
+
