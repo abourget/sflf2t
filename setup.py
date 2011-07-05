@@ -29,6 +29,8 @@ setup(name='SFLF2T',
       test_suite='sflf2t',
       install_requires = requires,
       entry_points = """\
+      [console_scripts]
+      sflf2t = sflf2t:main
       """,
       )
 

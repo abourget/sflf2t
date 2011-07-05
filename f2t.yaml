@@ -26,16 +26,27 @@ defs:
 # --- REWRITE POINT --- Sous cette ligne il y a réécriture automatique
 #
 heures:
-  2011-06-20:
-   - 1, nps, Sprint Review
-   - 1.5, direction, Comité de dir.
-   - 5, formation, Préparation du cours WEB-501
-  2011-06-21:
-   - 9, formation, SRAM, Web 501
-  2011-06-22:
-   - 8.5, formation, SRAM, Web 501
-  2011-06-23:
-   - 8.5, gestion, Planification, Embauche, suivi, vente, aboily, étienne
-  2011-06-24:
-   - 7.5, ferie, St-Jean
-
+  2011-06-27:
+   - 3.5, Comm, MtlPy 22, SFLvault
+   - 3.0, WebTV meeting là-bas
+   - 0.5, ITHQ
+   - 0.5, UdeM
+   - 1.0, RetD, FormAlchemy, Pyramid
+   - 1.5, Comm, Planning, MtlPy, Follow-ups, Prudhomme sur l'Appel d'Offre
+  2011-06-28:
+   - 1.5, ITHQ
+   - 1.5, retd, Management
+   - 1.0, RetD, SFLvoip
+   - 3.0, Comm, planning des équipes, aide à gauche à droite
+   - 1.0, UdeM, planning
+  2011-06-29:
+   - 2.0, RetD, FormAlchemy, contributions
+   - 1.0, InventionMedia, Téléphone, Étienne, etc..
+   - 2.0, Comm, ventes, transits avec Pierra, Embauches
+   - 2.0, Fruigor, Fixer le restart, parler à la madame, etc..
+   - 2.0, ITHQ
+  2011-06-30:
+   - 4.0, gestion Planning équipes
+   - 3.5, ITHQ
+  2011-07-01:
+   - 7.5, ferie, Fête du canada

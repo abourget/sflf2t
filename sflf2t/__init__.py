@@ -2,6 +2,7 @@
 import vobject
 import re
 import requests
+from itertools import groupby
 from getpass import getpass
 import calendar
 from datetime import *
@@ -29,11 +30,15 @@ def get_week_span():
            '2': last_week,
            '3': last_last_week,
            }
+    lab = {1: 'cette semaine',
+           2: u'semaine dernière',
+           3: 'il y a deux semaines'}
 
     while True:
         print "Choisir une date:"
         for x in range(1,4):
-            print "  %s. Lundi %s" % (x, sel[str(x)].strftime('%Y-%m-%d'))
+            print "  %s. Lundi %s (%s)" % (x, sel[str(x)].strftime('%Y-%m-%d'),
+                                           lab[x])
         choice = raw_input(">>> ")
         if choice in sel:
             break
@@ -41,6 +46,12 @@ def get_week_span():
     monday = sel[choice]
     monday_time = datetime(monday.year, monday.month, monday.day, 0, 0, 0)
     return (monday_time, monday_time + timedelta(7, -1))
+
+class Event(object):
+    def __init__(self, summary, dtstart, hours):
+        self.summary = summary
+        self.dtstart = dtstart
+        self.hours = hours
 
 
 def get_this_week_events(ics, week_start, week_end):
@@ -54,6 +65,7 @@ def get_this_week_events(ics, week_start, week_end):
         if week_start < start and week_end > start:
             events.append(vevent)
 
+    out = []
     print "Events:"
     for ev in events:
         summary = ev.summary.value
@@ -66,11 +78,10 @@ def get_this_week_events(ics, week_start, week_end):
         delta = ev.dtend.value - ev.dtstart.value
         hours = delta.seconds / 3600.0
         print "  Time:", hours, "hours"
+        out.append(Event(summary, evdate, hours))
 
+    return out
 
-#week_start, week_end = get_week_span()
-#ics = get_ics()
-#get_this_week_events(ics, week_start, week_end)
 
 
 
@@ -122,7 +133,7 @@ def parse_yaml_line(line, defs):
                          "Should look like: '5.0, vente, Some random comments'"%
                          line)
     hours = m.group(1)
-    mytype = m.group(2)
+    mytype = m.group(2).lower()
     details = m.group(3)
     if mytype not in defs:
         raise ValueError("Type specified is not in 'defs' section: %s" % mytype)
@@ -196,10 +207,58 @@ class F2T(object):
             self.req = r
         print "Done"
 
-try:
-    f2t = F2T()
-except ValueError, e:
-    print "ERROR:", e
-    sys.exit(1)
+#try:
+#    f2t = F2T()
+#except ValueError, e:
+#    print "ERROR:", e
+#    sys.exit(1)
+#f2t.post_f2t()
 
-f2t.post_f2t()
+
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(description='SFL-F2T')
+    parser.add_argument('--import-ics', action="store_true",
+                        default=False,
+                        help="Import F2T from your Zimbra Calendar")
+    parser.add_argument('--read', action="store_true",
+                        default=False,
+                        help="Read the f2t.yaml file, to test syntax and "
+                             "consistency")
+    parser.add_argument('--post', action="store_true",
+                        default=False,
+                        help="Post your f2t.yaml to Private")
+
+    args = parser.parse_args()
+
+    if args.import_ics:
+        week_start, week_end = get_week_span()
+        ics = get_ics()
+        events = get_this_week_events(ics, week_start, week_end)
+
+        print "#"
+        print "heures:"
+        dt = lambda x: x.dtstart
+        for day, events in groupby(sorted(events, key=dt), dt):
+            print "  %s:" % (day.strftime("%Y-%m-%d"))
+            for ev in events:
+                print "   - %s, %s" % (ev.hours, ev.summary)
+
+        sys.exit(0)
+
+    if args.post or args.read:
+        try:
+            f2t = F2T()
+        except ValueError, e:
+            print "ERROR:", e
+            sys.exit(1)
+
+        print "Reading done."
+
+        if args.post:
+            print "Posting to private..."
+            f2t.post_f2t()
+
+if __name__ == '__main__':
+    main()
