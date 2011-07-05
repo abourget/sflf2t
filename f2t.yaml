@@ -20,6 +20,10 @@ defs:
   formation: {cie: 57, type: formation}
   ferie: {cie: 57, type: ferie}
   direction: {cie: 57, type: comm}
+  comm: {cie: 57, type: comm}
+  webtv: {cie: 764, type: proj}
+  inventionmedia: {cie: 854, type: proj}
+  fruigor: {cie: 800, type: bh, bh: 112}
 #
 # Heures
 #

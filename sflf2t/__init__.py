@@ -1,5 +1,6 @@
 # -=- encoding: utf-8 -=-
 import vobject
+import yaml
 import re
 import requests
 from itertools import groupby
@@ -123,7 +124,7 @@ types = {
     }
 
 
-yaml_line_re = re.compile(r"([\d\.]+)[, ]*([a-z]+)[, ]*(.*)")
+yaml_line_re = re.compile(r"([\d\.]+)[, ]+([a-zA-Z_-]+)[, ]*(.*)")
 def parse_yaml_line(line, defs):
     """Return a tuple in the form: (hours, settings, details)"""
 
@@ -135,6 +136,9 @@ def parse_yaml_line(line, defs):
     hours = m.group(1)
     mytype = m.group(2).lower()
     details = m.group(3)
+    if not details.strip():
+        raise ValueError("No details for line: '%s'" % line)
+
     if mytype not in defs:
         raise ValueError("Type specified is not in 'defs' section: %s" % mytype)
     mydef = defs[mytype]
@@ -146,7 +150,10 @@ def parse_yaml_line(line, defs):
 
 class F2T(object):
     def __init__(self, filename='f2t.yaml'):
-        import yaml
+        self.filename = filename
+
+    def parse(self):
+        filename = self.filename
         data = self.data = yaml.load(open(filename).read())
         sections = ['heures', 'defs', 'settings']
         for sec in sections:
@@ -167,8 +174,7 @@ class F2T(object):
         sections = ['private_id', 'zimbra_login', 'private_login', 'ics']
         for sec in sections:
             if sec not in settings:
-                print "Missing key: %s in 'settings' section of yaml file." % sec
-                sys.exit(1)
+                raise ValueError("Missing key: %s in 'settings' section of yaml file." % sec)
 
         output = []
 
@@ -248,8 +254,9 @@ def main():
         sys.exit(0)
 
     if args.post or args.read:
+        f2t = F2T()
         try:
-            f2t = F2T()
+            f2t.parse()
         except ValueError, e:
             print "ERROR:", e
             sys.exit(1)
