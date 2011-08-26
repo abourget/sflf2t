@@ -8,45 +8,138 @@ from getpass import getpass
 import calendar
 from datetime import *
 import sys
+import os
 
-def get_ics():
-    passwd = getpass('Zimbra password: ')
-    r = requests.get('https://mail.savoirfairelinux.com/home/alexandre.bourget@savoirfairelinux.com/Calendar',
-                     auth=('alexandre.bourget', passwd))
-    if r.status_code != 200:
-        print "ERROR downloading your ICS file", r
-        sys.exit(1)
-    print "Reply: ", r
-    ics = vobject.readOne(r.content)
-    return ics
+#
+# Configuration
+#
 
-def get_week_span():
-    cal = calendar.Calendar()
-    today = date.today()
-    month_cal = cal.monthdatescalendar(today.year, today.month)
-    this_week = [x for x in month_cal if today in x][0][0]
-    last_week = this_week - timedelta(7)
-    last_last_week = last_week - timedelta(7)
-    sel = {'1': this_week,
-           '2': last_week,
-           '3': last_last_week,
-           }
-    lab = {1: 'cette semaine',
-           2: u'semaine dernière',
-           3: 'il y a deux semaines'}
+CONFIG_FILE="~/.sflf2t"
 
-    while True:
-        print "Choisir une date:"
-        for x in range(1,4):
-            print "  %s. Lundi %s (%s)" % (x, sel[str(x)].strftime('%Y-%m-%d'),
-                                           lab[x])
-        choice = raw_input(">>> ")
-        if choice in sel:
-            break
-        print "Bad choice :)"
-    monday = sel[choice]
-    monday_time = datetime(monday.year, monday.month, monday.day, 0, 0, 0)
-    return (monday_time, monday_time + timedelta(7, -1))
+if 'SFLF2T' in os.environ:
+    CONFIG_FILE=os.environ['SFLF2T']
+
+
+#
+# Program
+#
+
+
+config_file=os.path.realpath(os.path.expanduser(CONFIG_FILE))
+
+class CalFailed(Exception):
+    pass
+
+class Cal(object):
+    request = None
+    status_code = None
+    ics = None
+    chosen_week = None  # tuple of the dates to check for
+
+    def __init__(self):
+        self.events = []
+        self.f2t = F2T()
+        
+    def get_ics(self):
+        passwd = getpass('Zimbra password: ')
+        settings = self.f2t.data['settings']
+        if 'ics' not in settings or 'zimbra_login' not in settings:
+            raise CalFailed("'zimbra_login' and 'ics' required under 'settings' in config file: %s" % self.f2t.filename)
+
+        self.request = requests.get(settings['ics'],
+                                    auth=(settings['zimbra_login'], passwd))
+        if self.request.status_code != 200:
+            raise CalFailed("Error downloading your ICS file: %s" % r)
+
+        self.ics = vobject.readOne(self.request.content)
+
+
+    def choose_week_span(self):
+        cal = calendar.Calendar()
+        today = date.today()
+        month_cal = cal.monthdatescalendar(today.year, today.month)
+        this_week = [x for x in month_cal if today in x][0][0]
+        last_week = this_week - timedelta(7)
+        last_last_week = last_week - timedelta(7)
+        sel = {'1': this_week,
+               '2': last_week,
+               '3': last_last_week,
+               }
+        lab = {1: 'cette semaine',
+               2: u'semaine dernière',
+               3: 'il y a deux semaines'}
+
+        while True:
+            print "Choisir une date:"
+            for x in range(1,4):
+                print "  %s. Lundi %s (%s)" % (x, sel[str(x)].strftime('%Y-%m-%d'),
+                                               lab[x])
+            choice = raw_input(">>> ")
+            if choice in sel:
+                break
+            print "Bad choice :)"
+
+        monday = sel[choice]
+        monday_time = datetime(monday.year, monday.month, monday.day, 0, 0, 0)
+        self.chosen_week = (monday_time, monday_time + timedelta(7, -1))
+
+    def get_chosen_week_events(self):
+        week_start, week_end = self.chosen_week
+        events = []
+        for vevent in self.ics.vevent_list:
+            starttz = vevent.dtstart.value
+            if type(starttz) is date:
+                continue         # Full-day event
+            start = starttz.replace(tzinfo=None)
+            print start
+            if week_start < start and week_end > start:
+                events.append(vevent)
+
+        out = []
+        for ev in events:
+            summary = ev.summary.value
+            summary = summary.replace(', f2t', '') \
+                             .replace(' f2t', '') \
+                             .replace('f2t', '')
+            evdate = ev.dtstart.value.date()
+            #print "Event: %s" % evdate.strftime("%Y-%m-%d")
+            #print "  Summary:", summary
+            delta = ev.dtend.value - ev.dtstart.value
+            hours = delta.seconds / 3600.0
+            #print "  Time:", hours, "hours"
+            out.append(Event(summary, evdate, hours))
+
+        self.events = out
+
+
+    def output_events(self):
+        events = self.events
+        out = []
+        out.append("heures:\n")
+        dt = lambda x: x.dtstart
+        for day, events in groupby(sorted(events, key=dt), dt):
+            out.append("  %s:\n" % (day.strftime("%Y-%m-%d")))
+            for ev in events:
+                line = "   - %s, %s\n" % (ev.hours, ev.summary)
+                out.append(line.encode('utf-8'))
+        return ''.join(out)
+
+    def replace_events(self):
+        out = self.output_events()
+        old_config = open(self.f2t.filename).readlines()
+
+        rewrite = old_config
+        for i, line in enumerate(old_config):
+            if 'REWRITE POINT' in line:
+                rewrite = old_config[:i+1]
+                break
+        if rewrite == old_config:
+            rewrite.append(u'# --- REWRITE POINT --- Anything after this line can be rewritten\n')
+
+        new_config = ''.join(rewrite) + "#\n" + out
+        open(self.f2t.filename, 'w').write(new_config)
+
+        return
 
 class Event(object):
     def __init__(self, summary, dtstart, hours):
@@ -54,34 +147,6 @@ class Event(object):
         self.dtstart = dtstart
         self.hours = hours
 
-
-def get_this_week_events(ics, week_start, week_end):
-    events = []
-    for vevent in ics.vevent_list:
-        starttz = vevent.dtstart.value
-        if type(starttz) is date:
-            continue         # Full-day event
-        start = starttz.replace(tzinfo=None)
-        print start
-        if week_start < start and week_end > start:
-            events.append(vevent)
-
-    out = []
-    print "Events:"
-    for ev in events:
-        summary = ev.summary.value
-        summary = summary.replace(', f2t', '') \
-                         .replace(' f2t', '') \
-                         .replace('f2t', '')
-        evdate = ev.dtstart.value.date()
-        print "Event: %s" % evdate.strftime("%Y-%m-%d")
-        print "  Summary:", summary
-        delta = ev.dtend.value - ev.dtstart.value
-        hours = delta.seconds / 3600.0
-        print "  Time:", hours, "hours"
-        out.append(Event(summary, evdate, hours))
-
-    return out
 
 
 
@@ -149,12 +214,16 @@ def parse_yaml_line(line, defs):
             details)
 
 class F2T(object):
-    def __init__(self, filename='f2t.yaml'):
-        self.filename = filename
+    def __init__(self):
+        self.filename = config_file
+        self.data = yaml.load(open(self.filename).read())
+        if 'settings' not in self.data:
+            raise CalFailed("'settings' section doesn't exist in '%s'\n"
+                            "settings.ics and settings.zimbra_login required" %
+                            (self.filename))
 
     def parse(self):
-        filename = self.filename
-        data = self.data = yaml.load(open(filename).read())
+        data = self.data
         sections = ['heures', 'defs', 'settings']
         for sec in sections:
             if sec not in data:
@@ -213,12 +282,7 @@ class F2T(object):
             self.req = r
         print "Done"
 
-#try:
-#    f2t = F2T()
-#except ValueError, e:
-#    print "ERROR:", e
-#    sys.exit(1)
-#f2t.post_f2t()
+
 
 
 def main():
@@ -239,18 +303,18 @@ def main():
     args = parser.parse_args()
 
     if args.import_ics:
-        week_start, week_end = get_week_span()
-        ics = get_ics()
-        events = get_this_week_events(ics, week_start, week_end)
+        try:
+            cal = Cal()
+            cal.choose_week_span()
+            cal.get_ics()
+            cal.get_chosen_week_events()
+        except CalFailed, e:
+            print "ERROR: %s" % e
+            sys.exit(1)
 
-        print "#"
-        print "heures:"
-        dt = lambda x: x.dtstart
-        for day, events in groupby(sorted(events, key=dt), dt):
-            print "  %s:" % (day.strftime("%Y-%m-%d"))
-            for ev in events:
-                print "   - %s, %s" % (ev.hours, ev.summary)
+        cal.replace_events()
 
+        print "Done"
         sys.exit(0)
 
     if args.post or args.read:
