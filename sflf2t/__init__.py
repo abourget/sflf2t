@@ -1,6 +1,7 @@
 # -=- encoding: utf-8 -=-
 import vobject
 import yaml
+import json
 import re
 import requests
 from itertools import groupby
@@ -26,6 +27,35 @@ if 'SFLF2T' in os.environ:
 
 
 config_file=os.path.realpath(os.path.expanduser(CONFIG_FILE))
+
+
+class Entry(object):
+    def __init__(self, date, hours, cie, type, bh=None, ticket=None,
+                 details=None):
+        self.date = date
+        self.hours = float(hours)
+        self.cie = cie
+        self.type = unicode(type, 'utf-8')
+        self.bh = bh
+        self.ticket = ticket
+        self._details = details
+    
+    def __unicode__(self):
+        return u"date=%s, hours=%s, details=%s, cie=%s, type=%s, bh=%s, ticket=%s" % (self.date.strftime("%Y-%m-%d").decode('utf-8'), self.hours, self.details, self.cie, self.type, self.bh, self.ticket)
+
+    def __repr__(self):
+        return self.__unicode__().encode('utf-8')
+
+    @property
+    def no_ticket_details(self):
+        return self._details
+
+    @property
+    def details(self):
+        det = self._details
+        if self.ticket:
+            return det + u": RM" + unicode(self.ticket)
+        return det
 
 class CalFailed(Exception):
     pass
@@ -189,7 +219,7 @@ types = {
     }
 
 
-yaml_line_re = re.compile(r"([\d\.]+)[, ]+([a-zA-Z_-]+)[, ]*(.*)")
+yaml_line_re = re.compile(r"([\d\.]+)[, ]+([a-zA-Z_-]+)(\#(\d*))?[, ]*(.*)")
 def parse_yaml_line(line, defs):
     """Return a tuple in the form: (hours, settings, details)"""
 
@@ -200,17 +230,26 @@ def parse_yaml_line(line, defs):
                          line)
     hours = m.group(1)
     mytype = m.group(2).lower()
-    details = m.group(3)
+    ticket = m.group(4)
+    details = m.group(5)
+
     if not details.strip():
         raise ValueError("No details for line: '%s'" % line)
 
     if mytype not in defs:
         raise ValueError("Type specified is not in 'defs' section: %s" % mytype)
     mydef = defs[mytype]
+
+    if not ticket:
+        ticket = mydef.get('ticket', None)
+    if ticket in ("none", "None", "0", "-"):
+        ticket = None
+
     return (hours,
             mydef['cie'],
             types[mydef['type']],
             mydef.get('bh', None),
+            ticket,
             details)
 
 class F2T(object):
@@ -252,8 +291,8 @@ class F2T(object):
         for dt in sorted(heures):
             els = heures[dt]
             for el in els:
-                hours, cie, typ, bh, details = parse_yaml_line(el, defs)
-                output.append((dt, hours, cie, typ, bh, details))
+                hours, cie, typ, bh, ticket, details = parse_yaml_line(el, defs)
+                output.append(Entry(dt, hours, cie, typ, bh, ticket, details))
 
         self.entries = output
     
@@ -262,16 +301,18 @@ class F2T(object):
         passwd = getpass("Enter your 'private' (LDAP) password: ")
         url = "https://private.savoirfairelinux.com/f2t-ym.php"
         print "Using URL:", url
+        rmurl =  "https://projects.savoirfairelinux.com/time_entries.json"
+        print "Using Redmine URL:", rmurl
         for entry in self.entries:
             
             print "Posting entry", entry
             data = {'action': 'ajouter',
-                    'date': entry[0].strftime("%Y/%m/%d"),
-                    'create_clientSelect': entry[2],
-                    'create_typeSelect': entry[3],
-                    'details': entry[5],
-                    'create_banqueSelect': entry[4] or '',
-                    'nbheures': entry[1],
+                    'date': entry.date.strftime("%Y/%m/%d"),
+                    'create_clientSelect': entry.cie,
+                    'create_typeSelect': entry.type,
+                    'details': entry.details,
+                    'create_banqueSelect': entry.bh or '',
+                    'nbheures': entry.hours,
                     'dimanche': '9999/99/99',
                     }
             r = requests.post(url,
@@ -279,7 +320,18 @@ class F2T(object):
                               params={'idagent': self.settings['private_id'],
                                       'action': 'ajouter'},
                               auth=(self.settings['private_login'], passwd))
-            self.req = r
+            self.req_private = r
+            if entry.ticket: # if ticket
+                data = {'time_entry': {'comments': entry.no_ticket_details,
+                                       'hours': entry.hours,
+                                       'issue_id': entry.ticket,
+                                       'spent_on': entry.date.strftime("%Y/%m/%d")}}
+                print "Posting to REDMINE...", json.dumps(data)
+                r2 = requests.post(rmurl, data=json.dumps(data),
+                                   headers={"content-type": "application/json"},
+                                   auth=(self.settings['private_login'], passwd))
+                self.req_redmine = r2
+
         print "Done"
 
 
@@ -325,6 +377,10 @@ def main():
             print "ERROR:", e
             sys.exit(1)
 
+        print "Entries:"
+        for x in f2t.entries:
+            print x
+        print "Hours:", sum(x.hours for x in f2t.entries)
         print "Reading done."
 
         if args.post:
