@@ -26,7 +26,27 @@ if 'SFLF2T' in os.environ:
 #
 
 
-config_file=os.path.realpath(os.path.expanduser(CONFIG_FILE))
+config_file = os.path.realpath(os.path.expanduser(CONFIG_FILE))
+config = yaml.load(open(config_file).read())
+issues_cache = {}
+
+
+def get_zimbra_passwd():
+    global config
+    if 'zimbra_passwd' in config['settings']:
+        return config['settings']['zimbra_passwd']
+    passwd = getpass('Zimbra password: ')
+    config['settings']['zimbra_passwd'] = passwd
+    return passwd
+
+def get_ldap_passwd():
+    global config
+    if 'ldap_passwd' in config['settings']:
+        return config['settings']['ldap_passwd']
+    passwd = getpass("Enter your 'private' (LDAP) password: ")
+    config['settings']['ldap_passwd'] = passwd
+    return passwd
+
 
 
 class Entry(object):
@@ -52,9 +72,20 @@ class Entry(object):
 
     @property
     def details(self):
+        global issues_cache
+
         det = self._details
         if self.ticket:
-            return det + u": RM" + unicode(self.ticket)
+            # Load the project name, cache it
+            txt_ticket = str(self.ticket)
+            if txt_ticket not in issues_cache:
+                r = requests.get('https://projects.savoirfairelinux.com/issues/'+ txt_ticket + '.json', auth=(config['settings']['private_login'], get_ldap_passwd()))
+                if r.status_code != 200:
+                    raise ValueError("Problem with request fetching Issue, does Issue %s exist? %r" % (txt_ticket, r))
+                cnt = json.loads(r.content)
+                issues_cache[txt_ticket] = cnt
+            project_name = issues_cache[txt_ticket]['issue']['project']['name']
+            return project_name + u": RM" + unicode(self.ticket) + ' - ' + det
         return det
 
 class CalFailed(Exception):
@@ -71,8 +102,9 @@ class Cal(object):
         self.f2t = F2T()
         
     def get_ics(self):
-        passwd = getpass('Zimbra password: ')
-        settings = self.f2t.data['settings']
+        global config
+        passwd = get_zimbra_passwd()
+        settings = config['settings']
         if 'ics' not in settings or 'zimbra_login' not in settings:
             raise CalFailed("'zimbra_login' and 'ics' required under 'settings' in config file: %s" % self.f2t.filename)
 
@@ -171,6 +203,7 @@ class Cal(object):
 
         return
 
+
 class Event(object):
     def __init__(self, summary, dtstart, hours):
         self.summary = summary
@@ -189,6 +222,7 @@ types = {
     'affectation': "Affectation",
     'consultation': "Affectation",
     'aff': "Affectation",
+    'affect': "Affectation",
     'cons': "Affectation",
     'bh': "Banque d'heures",
     'banque': "Banque d'heures",
@@ -254,12 +288,12 @@ def parse_yaml_line(line, defs):
 
 class F2T(object):
     def __init__(self):
-        self.filename = config_file
-        self.data = yaml.load(open(self.filename).read())
+        global config
+        self.data = config
         if 'settings' not in self.data:
             raise CalFailed("'settings' section doesn't exist in '%s'\n"
                             "settings.ics and settings.zimbra_login required" %
-                            (self.filename))
+                            (config_file))
 
     def parse(self):
         data = self.data
@@ -297,8 +331,9 @@ class F2T(object):
         self.entries = output
     
     def post_f2t(self):
+        global config
         import requests
-        passwd = getpass("Enter your 'private' (LDAP) password: ")
+        passwd = get_ldap_passwd()
         url = "https://private.savoirfairelinux.com/f2t-ym.php"
         print "Using URL:", url
         rmurl =  "https://projects.savoirfairelinux.com/time_entries.json"
@@ -381,6 +416,7 @@ def main():
         for x in f2t.entries:
             print x
         print "Hours:", sum(x.hours for x in f2t.entries)
+        print "WARNING: make sure to tweak the DESCRIPTION to private with the PROJECT NAME when adding a ticket"
         print "Reading done."
 
         if args.post:
