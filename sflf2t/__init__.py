@@ -15,7 +15,7 @@ import os
 # Configuration
 #
 
-CONFIG_FILE="~/.sflf2t"
+CONFIG_FILE="sfl.f2t"
 
 if 'SFLF2T' in os.environ:
     CONFIG_FILE=os.environ['SFLF2T']
@@ -106,7 +106,7 @@ class Cal(object):
         passwd = get_zimbra_passwd()
         settings = config['settings']
         if 'ics' not in settings or 'zimbra_login' not in settings:
-            raise CalFailed("'zimbra_login' and 'ics' required under 'settings' in config file: %s" % self.f2t.filename)
+            raise CalFailed("'zimbra_login' and 'ics' required under 'settings' in config file: %s" % config_file)
 
         self.request = requests.get(settings['ics'],
                                     auth=(settings['zimbra_login'], passwd))
@@ -188,7 +188,7 @@ class Cal(object):
 
     def replace_events(self):
         out = self.output_events()
-        old_config = open(self.f2t.filename).readlines()
+        old_config = open(config_file).readlines()
 
         rewrite = old_config
         for i, line in enumerate(old_config):
@@ -199,7 +199,7 @@ class Cal(object):
             rewrite.append(u'# --- REWRITE POINT --- Anything after this line can be rewritten\n')
 
         new_config = ''.join(rewrite) + "#\n" + out
-        open(self.f2t.filename, 'w').write(new_config)
+        open(config_file, 'w').write(new_config)
 
         return
 
