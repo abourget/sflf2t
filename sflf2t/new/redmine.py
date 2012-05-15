@@ -1,18 +1,18 @@
 # -=- encoding: utf-8 -=-
 
 """Implement the Redmine searcher methods, as well as the Redmine timesheet
-pusher.
+submitter.
 """
 
 plugin_name = 'Redmine'
 
-def pusher_prepare(config):
+def submitter_prepare(config):
     pass
 
-def pusher_review(content):
+def submitter_review(content):
     pass
 
-def pusher_submit(content):
+def submitter_post(content):
     pass
 
 def searcher(config, timesheet_element):

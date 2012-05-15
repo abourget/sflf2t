@@ -15,7 +15,7 @@ import os
 # Configuration
 #
 
-CONFIG_FILE="sfl.f2t"
+CONFIG_FILE="~/sfl.f2t"
 
 if 'SFLF2T' in os.environ:
     CONFIG_FILE=os.environ['SFLF2T']

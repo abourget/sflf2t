@@ -11,46 +11,56 @@ settings:
 #
 defs:
   vente: {cie: 57, type: vente}
+  ventes: {cie: 57, type: vente}
   retd: {cie: 57, type: retd}
   rh: {cie: 57, type: rh}
   gestion: {cie: 57, type: proj}
   nps: {cie: 819, type: proj}
   ithq: {cie: 842, type: proj}
-  udem: {cie: 774, type: bh, bh: 131}
+  udem: {cie: 774, type: proj}
   formation: {cie: 57, type: formation}
   ferie: {cie: 57, type: ferie}
+  conge: {cie: 57, type: conge}
   direction: {cie: 57, type: comm}
   comm: {cie: 57, type: comm}
   webtv: {cie: 764, type: proj}
-  inventionmedia: {cie: 854, type: proj}
+  inventionmedia: {cie: 853, type: proj}
+  tabtimes: {cie: 853, type: proj}
   fruigor: {cie: 800, type: bh, bh: 112}
+  percolab: {cie: 812, type: proj}
 #
 # Heures
 #
 # --- REWRITE POINT --- Sous cette ligne il y a réécriture automatique
 #
 heures:
-  2011-06-27:
-   - 3.5, Comm, MtlPy 22, SFLvault
-   - 3.0, WebTV meeting là-bas
-   - 0.5, ITHQ
-   - 0.5, UdeM
-   - 1.0, RetD, FormAlchemy, Pyramid
-   - 1.5, Comm, Planning, MtlPy, Follow-ups, Prudhomme sur l'Appel d'Offre
-  2011-06-28:
-   - 1.5, ITHQ
-   - 1.5, retd, Management
-   - 1.0, RetD, SFLvoip
-   - 3.0, Comm, planning des équipes, aide à gauche à droite
-   - 1.0, UdeM, planning
-  2011-06-29:
-   - 2.0, RetD, FormAlchemy, contributions
-   - 1.0, InventionMedia, Téléphone, Étienne, etc..
-   - 2.0, Comm, ventes, transits avec Pierra, Embauches
-   - 2.0, Fruigor, Fixer le restart, parler à la madame, etc..
-   - 2.0, ITHQ
-  2011-06-30:
-   - 4.0, gestion Planning équipes
-   - 3.5, ITHQ
-  2011-07-01:
-   - 7.5, ferie, Fête du canada
+  2011-08-22:
+   - 2.0, Gestion, Follow-up, Facturation
+   - 1.0, NPS, Phone call
+   - 1.5, Gestion, Follow-up
+   - 4.0, WebTV, Rush pour le transcodage et le support IE7
+  2011-08-23:
+   - 1.0, ITHQ, Facturation, Reporting
+   - 1.5, ITHQ, Rencontre suivi
+   - 1.0, Gestion, Projets, RH, ITHQ
+   - 1.0, RetD, Outils Linux
+   - 1.5, Vente, UgroupMedia, analyse, téléphone, planning UdeM, etc...
+  2011-08-24:
+   - 1.5, WebTV, Urgence des bugs IE7 et transcodage,
+   - 1.5, Gestion, RH
+   - 1.0, Gestion, org. TabTimes, ITHQ
+   - 2.0, RetD, SFLvault
+   - 0.5, TabTimes, Call et follow-up
+   - 1.5, UdeM, Update de leur site web
+  2011-08-25:
+   - 1.5, Gestion, Gestion et autre (RetD)
+   - 3.0, UdeM, Meeting là-bas
+   - 1.5, UdeM, Mise à jour et assistance pour mettre à jour leurs templates Dreamweaver
+   - 1.0, RetD, Web app testing, planif RH
+  2011-08-26:
+   - 0.5, WebTV, Conf call avec Ville de Montréal
+   - 1.0, TabTimes, tech call
+   - 3.5, Gestion, Facturation facturation facturation (ITHQ, Percolab, calls, etc..), debrief tcohen aboily
+   - 1.0, RetD, Dev SFLF2t
+   - 0.5, RetD, real-time web
+   - 0.5, Gestion, Facturation

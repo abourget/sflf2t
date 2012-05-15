@@ -6,3 +6,6 @@
 
 # TODO: implement the shell-like thing that will allow us to
 #       call the different modules.
+
+def handler_add(config):
+    
