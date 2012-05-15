@@ -32,10 +32,11 @@ def op_tickets_and_sort():
             break
         lines.append(line)
 
-    ticket_reg = re.compile(r": (\d{4})")
+    ticket_reg = re.compile(r": (\d{4,5})")
     tickets = ticket_reg.findall("\n".join(lines))
     unique_tickets = sorted(set(tickets))
     tickets_list = []
+    print "Fetching unique tickets:", unique_tickets
     for ticket in unique_tickets:
         r = requests.get('https://projects.savoirfairelinux.com/issues/'+ ticket + '.json', auth=(get_ldap_user(), get_ldap_passwd()))
         try:
