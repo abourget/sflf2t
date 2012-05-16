@@ -1,0 +1,6 @@
+TODO
+----
+
+* Scaffold in fichier sample quand on start et que le fichier de
+  config n'existe pas.
+

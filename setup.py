@@ -30,13 +30,16 @@ setup(name='SFLF2T',
       install_requires = requires,
       entry_points = """\
       [console_scripts]
-      sflf2t = sflf2t.new:main
+      sflf2t = sflf2t:main
+      sflf2t_old = sflf2t.old:main
       
       [sflf2t.plugins]
-      redmine = sflf2t.new.redmine
-      private = sflf2t.new.private
-      zimbra = sflf2t.new.zimbra
-      git = sflf2t.new.git
+      redmine = sflf2t.redmine
+      private = sflf2t.private
+      zimbra = sflf2t.zimbra
+      git = sflf2t.git
+      imap = sflf2t.imapfetch
+      hamster = sflf2t.hamster
       """,
       )
 

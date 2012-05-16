@@ -2,7 +2,7 @@
 
 """Implement the Zimbra fetcher, for ICS and transform into a timesheet."""
 
-from sflf2t.new.config import TimeEntry
+from sflf2t.config import TimeEntry
 
 plugin_name = 'Zimbra Calendar'
 

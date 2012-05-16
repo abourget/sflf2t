@@ -48,13 +48,16 @@ import yaml
 from collections import OrderedDict
 import argparse
 
+from sflf2t.core import (execute_add, execute_submit, execute_preview,
+                         execute_edit, execute_fetch, execute_search)
+
 def load_plugins():
     # Loop entry points, create Plugin objects, and return the list
     from pkg_resources import iter_entry_points
     plugins = []
     for ep in iter_entry_points('sflf2t.plugins'):
         module = ep.load()
-        new_plugin = Plugin(module)
+        new_plugin = Plugin(ep.name, module)
         if not hasattr(module, 'plugin_name'):
             print "WARNING, plugin %s at location %s doesn't have a `plugin_name` and is probably not a SFL-F2T plugin" % (ep.name, module.__file__)
             continue
@@ -67,31 +70,56 @@ def get_config_filename():
     realname = os.path.realpath(os.path.expanduser(filename))
     return realname
 
-def load_configuration(filename):
+def load_configuration(filename, plugins):
     """Read the config file"""
     # Use the os.environ to use the SFLF2T env var, fall back to ~/sfl.f2t
-    config = Config(filename)
+    config = Config(filename, plugins)
     return config
 
 def get_command_line_parser(config, plugins):
     """Load argparser from each plugins if required"""
     parser = argparse.ArgumentParser(description='SFL-F2T')
-    subparser = parser.add_subparsers(help="subcommands")
-    parser_add = subparser.add_parser('add', help="Add a new entry")
-    parser_fetch = subparser.add_parser('fetch', help="Fetch time entries")
-    parser_edit = subparser.add_parser('edit', help="Edit time sheet file and settings")
-    parser_submit = subparser.add_parser('submit', help="Submit time entries")
-    parser_merge = subparser.add_parser('merge', help="Merge time entries")
-    parser_split = subparser.add_parser('split', help="Split time entries")
-    parser_search = subparser.add_parser('search', help="Search metadata and resolve ambiguities")
-    parser_preview = subparser.add_parser('preview', help="Preview time sheet")
-    parser_submit = subparser.add_parser('submit', help="Submit time sheet (after preview)")
+    parser.set_defaults(command=None)
+    subparsers = parser.add_subparsers(help="subcommands", dest='command')
+
+    sub_commands = (('add', "Add a new entry", execute_add),
+                    ('fetch', "Fetch time entries", execute_fetch),
+                    ('edit', "Edit time sheet file and settings", execute_edit),
+                    ('preview', "stuff", execute_preview),
+                    ('submit', "Stuff", execute_submit),
+                    ('search', "Search metadata and resolve unit/ambiguities",
+                     execute_search),
+                    )
+    
+    cmdparsers = {}
+    for cmd, help_msg, execute_func in sub_commands:
+        subparser = subparsers.add_parser(cmd, help=help_msg)
+        subparser.set_defaults(cmd_func=execute_func)
+        cmdparsers[cmd] = subparser
+
+    # Add specific arguments:
+    cmdparsers['preview'].add_argument('plugin', nargs="*",
+                                       help="Preview plugins only")
+    cmdparsers['submit'].add_argument('plugin', nargs="*",
+                                      help="Submit plugins only")
+    # parser_add = subparser.add_parser('add', help="Add a new entry")
+    # parser_fetch = subparser.add_parser('fetch', help="Fetch time entries")
+    # parser_edit = subparser.add_parser('edit', help="Edit time sheet file and settings")
+    # parser_submit = subparser.add_parser('submit', help="Submit time entries")
+    # parser_merge = subparser.add_parser('merge', help="Merge time entries")
+    # parser_split = subparser.add_parser('split', help="Split time entries")
+    # parser_search = subparser.add_parser('search', help="Search metadata and resolve ambiguities")
+    # parser_preview = subparser.add_parser('preview', help="Preview time sheet")
+    # parser_submit = subparser.add_parser('submit', help="Submit time sheet (after preview)")
 
     for plugin in plugins:
-        plugin.add_subcommand('fetch', parser_fetch)
-        plugin.add_subcommand('preview', parser_preview)
-        plugin.add_subcommand('submit', parser_submit)
+        plugin.add_subcommand('fetch', cmdparsers['fetch'])
+        plugin.add_subcommand('preview', cmdparsers['preview'])
+        plugin.add_subcommand('submit', cmdparsers['submit'])
+        plugin.add_subcommand('search', cmdparsers['search'])
+        
 
+    return parser
     
 def write_timesheet(filename, timesheet):
     """Write only the timesheet section, while preserving the
@@ -117,7 +145,9 @@ class Config(object):
         self.timesheet = []
         for date, entries in self.data['timesheet'].iteritems():
             for time_entry in entries:
-                self.timesheet.append(TimeEntry(date, **time_entry))
+                new_entry = TimeEntry((('date', date),) +
+                                      tuple(time_entry.iteritems()))
+                self.timesheet.append(new_entry)
 
     def get_password(self, realm, prompt):
         """Get the password for a particular service, ex.
@@ -179,10 +209,6 @@ class TimeEntry(OrderedDict):
       private:
         bh: 123
     """
-    def __init__(self, date, **kwargs):
-        self['date'] = date
-        self.update(kwargs)
-
     def get(self, dotted_key, default=None):
         """Return a key for an element specified as:
 
@@ -195,7 +221,7 @@ class TimeEntry(OrderedDict):
         if it exists, otherwise the 'default' value.
         """
         subtree = self
-        for key in dotted_key.split('.')
+        for key in dotted_key.split('.'):
             if key not in subtree:
                 return default
             else:
@@ -204,7 +230,8 @@ class TimeEntry(OrderedDict):
 
         
 class Plugin(object):
-    def __init__(self, module):
+    def __init__(self, short_name, module):
+        self.short_name = short_name  # from the Entry point def.
         self.name = module.plugin_name
         self.is_searcher = hasattr(module, 'searcher')
         self.is_fetcher = hasattr(module, 'fetcher')
@@ -226,3 +253,22 @@ class Plugin(object):
         method = 'add_subcommand_%s' % operation
         if hasattr(self.module, method):
             getattr(self.module, method)(parser)
+
+    def has_feature(self, feature):
+        if feature == 'searcher':
+            return self.is_searcher
+        elif feature == 'submitter':
+            return self.is_submitter
+        elif feature == 'fetcher':
+            return self.is_fetcher
+        else:
+            raise ValueError("feature should be 'searcher', 'submitter', "
+                             "or 'fetcher'")
+
+    def execute_preview(self, args):
+        struct = self.module.submitter_prepare(self.config, args)
+        return self.module.submitter_preview(struct)
+
+    def execute_submit(self, args):
+        struct = self.module.submitter_prepare(self.config, args)
+        return self.module.submitter_preview(struct)
