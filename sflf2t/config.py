@@ -49,7 +49,8 @@ from collections import OrderedDict
 import argparse
 
 from sflf2t.core import (execute_add, execute_submit, execute_preview,
-                         execute_edit, execute_fetch, execute_search)
+                         execute_edit, execute_fetch, execute_search,
+                         execute_merge, execute_split)
 
 def load_plugins():
     # Loop entry points, create Plugin objects, and return the list
@@ -80,15 +81,18 @@ def get_command_line_parser(config, plugins):
     """Load argparser from each plugins if required"""
     parser = argparse.ArgumentParser(description='SFL-F2T')
     parser.set_defaults(command=None)
-    subparsers = parser.add_subparsers(help="subcommands", dest='command')
+    subparsers = parser.add_subparsers(dest='command')
 
-    sub_commands = (('add', "Add a new entry", execute_add),
+    sub_commands = (('add', "Add a new time entry", execute_add),
                     ('fetch', "Fetch time entries", execute_fetch),
                     ('edit', "Edit time sheet file and settings", execute_edit),
-                    ('preview', "stuff", execute_preview),
-                    ('submit', "Stuff", execute_submit),
-                    ('search', "Search metadata and resolve unit/ambiguities",
+                    ('preview', "Preview time sheet", execute_preview),
+                    ('submit', "Submit time sheet (previews first)",
+                     execute_submit),
+                    ('search', "Search metadata, resolve units/ambiguities",
                      execute_search),
+                    ('merge', "Merge time entries", execute_merge),
+                    ('split', "Split time entries", execute_split),
                     )
     
     cmdparsers = {}
@@ -98,28 +102,33 @@ def get_command_line_parser(config, plugins):
         cmdparsers[cmd] = subparser
 
     # Add specific arguments:
-    cmdparsers['preview'].add_argument('plugin', nargs="*",
+    cmdparsers['preview'].add_argument('plugins', nargs="*",
                                        help="Preview plugins only")
-    cmdparsers['submit'].add_argument('plugin', nargs="*",
+    cmdparsers['preview'].epilog = _plugins_parser_description(plugins,
+                                                               'submitter')
+    cmdparsers['submit'].add_argument('plugins', nargs="*",
                                       help="Submit plugins only")
-    # parser_add = subparser.add_parser('add', help="Add a new entry")
-    # parser_fetch = subparser.add_parser('fetch', help="Fetch time entries")
-    # parser_edit = subparser.add_parser('edit', help="Edit time sheet file and settings")
-    # parser_submit = subparser.add_parser('submit', help="Submit time entries")
-    # parser_merge = subparser.add_parser('merge', help="Merge time entries")
-    # parser_split = subparser.add_parser('split', help="Split time entries")
-    # parser_search = subparser.add_parser('search', help="Search metadata and resolve ambiguities")
-    # parser_preview = subparser.add_parser('preview', help="Preview time sheet")
-    # parser_submit = subparser.add_parser('submit', help="Submit time sheet (after preview)")
+    cmdparsers['submit'].epilog = _plugins_parser_description(plugins,
+                                                              'submitter')
+    cmdparsers['fetch'].add_argument('plugins', nargs="*",
+                                      help="Submit plugins only")
+    cmdparsers['fetch'].epilog = _plugins_parser_description(plugins,
+                                                             'fetcher')
 
     for plugin in plugins:
         plugin.add_subcommand('fetch', cmdparsers['fetch'])
         plugin.add_subcommand('preview', cmdparsers['preview'])
         plugin.add_subcommand('submit', cmdparsers['submit'])
-        plugin.add_subcommand('search', cmdparsers['search'])
-        
+        plugin.add_subcommand('search', cmdparsers['search'])        
 
     return parser
+
+def _plugins_parser_description(plugins, operation):
+    desc = []
+    for plugin in plugins:
+        if plugin.has_feature(operation):
+            desc.append(plugin.short_name)
+    return ("%s plugins loaded: " % (operation)).title() + ", ".join(desc)
     
 def write_timesheet(filename, timesheet):
     """Write only the timesheet section, while preserving the
@@ -196,6 +205,22 @@ class Config(object):
         if out is None:
             out = self.get(dotted_key, prefix="config")
         return out
+
+    def plugins_with_support(self, feature, limit=None):
+        """Get plugins with specific features or specific plugin
+
+        :param feature: some or 'searcher', 'fetcher', 'submitter'
+        """
+        plugins = self.plugins
+        if limit:
+            plugins = [plugin for plugin in plugins
+                       if plugin.short_name in limit]
+
+        res = [plugin for plugin in plugins
+               if plugin.has_feature(feature)]
+    
+        return res
+    
         
 
 class TimeEntry(OrderedDict):
@@ -245,6 +270,7 @@ class Plugin(object):
 
     def initialize(self, config, parser):
         """Initialize the plugin if it has an initialize() method"""
+        self.config = config
         if hasattr(self.module, 'initialize'):
             return self.module.initialize(config)
 
@@ -266,6 +292,7 @@ class Plugin(object):
                              "or 'fetcher'")
 
     def execute_preview(self, args):
+        print "Previewing", args.plugins, self.module
         struct = self.module.submitter_prepare(self.config, args)
         return self.module.submitter_preview(struct)
 
