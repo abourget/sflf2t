@@ -2,17 +2,27 @@
 
 """Implement the Zimbra fetcher, for ICS and transform into a timesheet."""
 
+import calendar
+from datetime import date, timedelta, datetime
+
+import requests
+import vobject
+
 from sflf2t.config import TimeEntry
 
 plugin_name = 'Zimbra Calendar'
 
-def fetcher(config):
-    cal = Cal()
+def initialize(config, parser):
+    # TODO: do some init on different parsers, etc..
+    pass
+
+def fetcher(config, args):
+    cal = Cal(config)
     cal.choose_week_span()
     cal.get_ics()
     cal.get_chosen_week_events()
-
-    pass
+    config.timesheet.extend(cal.events)
+    config.write_back()
 
 
 
@@ -27,19 +37,19 @@ class Cal(object):
     ics = None
     chosen_week = None  # tuple of the dates to check for
 
-    def __init__(self):
+    def __init__(self, config):
+        self.config = config
         self.events = []
-        self.f2t = F2T()
         
     def get_ics(self):
-        global config
-        passwd = get_zimbra_passwd()
-        settings = config['settings']
-        if 'ics' not in settings or 'zimbra_login' not in settings:
-            raise CalFailed("'zimbra_login' and 'ics' required under 'settings' in config file: %s" % config_file)
+        config = self.config
+        passwd = config.get_password('zimbra', "Enter your ZIMBRA password:")
+        if not config.get('zimbra.login') or \
+           not config.get('zimbra.ics'):
+            raise CalFailed("'zimbra.login' and 'zimbra.ics' configs required")
 
-        self.request = requests.get(settings['ics'],
-                                    auth=(settings['zimbra_login'], passwd))
+        self.request = requests.get(config.get('zimbra.ics'),
+                                    auth=(config.get('zimbra.login'), passwd))
         if self.request.status_code != 200:
             raise CalFailed("Error downloading your ICS file: %s" % r)
 

@@ -130,18 +130,6 @@ def _plugins_parser_description(plugins, operation):
             desc.append(plugin.short_name)
     return ("%s plugins loaded: " % (operation)).title() + ", ".join(desc)
     
-def write_timesheet(filename, timesheet):
-    """Write only the timesheet section, while preserving the
-    config and tag sections.
-    """
-    # Sort out timesheet (taken from config.timesheet probably ?)
-    # Group by date
-    # dump in YAML,
-    # rewrite in filename at REWRITE POINT
-    # yaml.dump({may: [{'h': 3, 'tag': 'vente', 'desc': u"Hey c'est cool ça", "unit": "Bob"}, {'h': 4, 'tag': 'udem', 'desc': "Stuff", 'unit': '10834'}]}, default_flow_style=False)
-    # see  old sflf2t __init__.py at 49% (search REWRITE POINT)
-    pass
-
     
 class Config(object):
     def __init__(self, filename, plugins):
@@ -158,6 +146,26 @@ class Config(object):
                                       tuple(time_entry.iteritems()))
                 self.timesheet.append(new_entry)
 
+    def write_back(self):
+        """Write only the timesheet section back to the file, while preserving
+        the config and tag sections.
+        """
+        ordered_ts = sorted(self.timesheet)
+        # Sort out timesheet (taken from config.timesheet probably ?)
+        from itertools import groupby
+        # Group by date
+        res = {}
+        for key, vals in groupby(ordered_ts, key=lambda x: x['date']):
+            res.setdefault(key, []).extend(list(vals))
+
+        print res
+        # dump in YAML,
+        # rewrite in filename at REWRITE POINT
+        # yaml.dump({may: [{'h': 3, 'tag': 'vente', 'desc': u"Hey c'est cool ça", "unit": "Bob"}, {'h': 4, 'tag': 'udem', 'desc': "Stuff", 'unit': '10834'}]}, default_flow_style=False)
+        # see  old sflf2t __init__.py at 49% (search REWRITE POINT)
+        pass
+
+
     def get_password(self, realm, prompt):
         """Get the password for a particular service, ex.
         redmine, private, zimbra, etc.  Keeping the realm here
@@ -170,7 +178,7 @@ class Config(object):
             return self.passwords[realm]
             
         import getpass
-        new_pass = getpass.getpass(prompt)
+        new_pass = getpass.getpass(prompt.strip() + " ")
         
         self.passwords[realm] = new_pass
         return new_pass
@@ -272,7 +280,7 @@ class Plugin(object):
         """Initialize the plugin if it has an initialize() method"""
         self.config = config
         if hasattr(self.module, 'initialize'):
-            return self.module.initialize(config)
+            return self.module.initialize(config, parser)
 
     def add_subcommand(self, operation, parser):
         """Call things like 'add_subcommand_fetch' on plugins."""
@@ -299,3 +307,6 @@ class Plugin(object):
     def execute_submit(self, args):
         struct = self.module.submitter_prepare(self.config, args)
         return self.module.submitter_preview(struct)
+
+    def execute_fetch(self, args):
+        return self.module.fetcher(self.config, args)

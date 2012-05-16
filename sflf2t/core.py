@@ -22,6 +22,9 @@ def execute_preview(config, args):
 
 def execute_fetch(config, args):
     use_plugins = config.plugins_with_support('fetcher', limit=args.plugins)
+    for plugin in use_plugins:
+        print "Executing fetch for plugin %s" % plugin.short_name
+        plugin.execute_fetch(args)
 
 def execute_search(config, args):
     use_plugins = config.plugins_with_support('searcher', limit=args.plugins)
