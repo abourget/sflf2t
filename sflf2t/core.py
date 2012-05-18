@@ -10,7 +10,8 @@
 import os
 
 def execute_add(config, args):
-    pass
+    menu_runner(config)
+        
 
 def execute_submit(config, args):
     use_plugins = config.plugins_with_support('submitter', limit=args.plugins)
@@ -40,4 +41,154 @@ def execute_merge(config, args):
 
 def execute_split(config, args):
     pass
+    
+
+
+
+
+
+
+#
+# Interactive menu
+#
+class BadArguments(Exception):
+    """When bad arguments are passed as a menu answer."""
+    pass
+    
+def menu_title(title):
+    print title
+    print '-' * len(title)
+    
+def menu(config, state, conf):
+    """Run an interactive menu.
+
+    :param config: The initial Config object
+    :param state: A dict that holds state for the interactive session
+    
+    """
+    mapping = dict((k, f) for k, d, f in conf)
+    print
+    for key, desc, func in conf:
+        print "  %s. %s" % (key, desc)
+    while True:
+        ans = raw_input(">>> ").split()
+        func = ans[0]
+        if func not in mapping:
+            print "### Invalid input, use one of:", mapping.keys()
+            continue
+        print_line()
+        state['args'] = ans
+        return mapping[func]
+
+
+def menu_runner(config):
+    state = {}
+
+    next_callable = initial_menu
+    while True:
+        try:
+            res = next_callable(config, state)
+        except BadArguments as e:
+            print "### Bad arguments:", e
+            print_line()
+            next_callable = initial_menu
+            continue
+        if res:
+            next_callable = res
+        else:
+            break
+
+
+def initial_menu(config, state):
+    conf = [('a', 'Add an item', menu_add_item),
+            ('e', 'Edit an item', menu_edit_item),
+            ('r', 'Remove items', menu_remove_items),
+            ('c', 'Clear timesheet', menu_clear_items),
+            ('m', 'Merge items', menu_merge_items),
+            ('q', 'Save and quit', menu_save_quit),
+            ('x', 'Exit without saving', None),
+            ]
+    menu_title("Welcome!")
+    config.show_timesheet()
+    return menu(config, state, conf)
+
+    
+def get_entries_from_timesheet(config, state):
+    res = get_indexes_from_timesheet(config, state)
+    return [config.timesheet[idx] for idx in res]
+
+def get_indexes_from_timesheet(config, state):
+    args = state.get('args')
+    if not args:
+        raise BadArguments("No answer provided")
+    if len(args) == 1:
+        raise BadArguments("No entry specified. Please enter one or more numbers from the time sheet listing.")
+    res = []
+    for arg in args[1:]:
+        if not arg.isdigit():
+            raise BadArguments("Argument %s is invalid, is not a number" % arg)
+        idx = int(arg)
+        if len(config.timesheet) < idx:
+            raise BadArguments("Entry %s doesn't exist" % idx)
+        res.append(idx - 1)
+    return res
+
+def menu_save_quit(config, state):
+    config.write_back()
+    return None
+
+def menu_add_item(config, state):
+    date = raw_input("Date: ")
+    desc = raw_input("Description: ")
+    tag = raw_input("Tag: ")
+    unit = raw_input("Unit: ")
+    hours = raw_input("Hours: ")
+    print_line()
+    return initial_menu
+
+def print_line():
+    print '-' * 80
+    
+def menu_edit_item(config, state):
+    print "Ok, edited"
+    config.timesheet[3].metadata = 'boo, this is a good ticket'
+    config.timesheet[7].metadata = 'boo, this is a good ticket'
+    print_line()
+    return initial_menu
+
+def menu_clear_items(config, state):
+    ans = raw_input("You are about to clear all time entries. Confirm [y/n] ")
+    if ans in ('y', 'Y', 'yes', 'YES', 'Yes'):
+        print "Cleared"
+        config.timesheet = []
+    else:
+        print "Aborted"
+    print_line()
+    return initial_menu
+    
+def menu_remove_items(config, state):
+    indexes = get_indexes_from_timesheet(config, state)
+    indexes.sort()
+    remove_count = 0
+    for idx in indexes:
+        next_idx = idx - remove_count
+        print "Removing: %s" % config.timesheet[next_idx].show()
+        del config.timesheet[next_idx]
+        remove_count += 1
+    print_line()
+    return initial_menu
+
+def menu_merge_items(config, state):
+    indexes = get_indexes_from_timesheet(config, state)
+    indexes.sort()
+    if len(indexes) != 2:
+        raise BadArguments("You can only merge two at a time")
+    print "Ok, just merged"
+    print_line()
+    return initial_menu
+    
+def menu_2(config, state):
+    conf = [('2', "Quit", initial_menu)]
+    menu_title("This is menu 2")
+    return menu(config, state, conf)
     

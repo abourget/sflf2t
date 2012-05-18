@@ -44,8 +44,10 @@ timesheet:
 """
 
 import os
+import datetime
 import yaml
 from collections import OrderedDict
+from itertools import groupby
 import argparse
 
 from sflf2t.core import (execute_add, execute_submit, execute_preview,
@@ -146,24 +148,24 @@ class Config(object):
                                       tuple(time_entry.iteritems()))
                 self.timesheet.append(new_entry)
 
+    def get_grouped_timesheet(self):
+        self.timesheet.sort(key=lambda x: x['date'])
+        res = []
+        for key, vals in groupby(self.timesheet, key=lambda x: x['date']):
+            res.append((key, list(vals)))
+        return res
+                
     def write_back(self):
         """Write only the timesheet section back to the file, while preserving
         the config and tag sections.
         """
-        ordered_ts = sorted(self.timesheet)
-        # Sort out timesheet (taken from config.timesheet probably ?)
-        from itertools import groupby
-        # Group by date
-        res = {}
-        for key, vals in groupby(ordered_ts, key=lambda x: x['date']):
-            res.setdefault(key, []).extend(list(vals))
-
-        print res
+        res = self.get_grouped_timesheet()
+        from pprint import pprint
+        pprint(res)
         # dump in YAML,
         # rewrite in filename at REWRITE POINT
         # yaml.dump({may: [{'h': 3, 'tag': 'vente', 'desc': u"Hey c'est cool ça", "unit": "Bob"}, {'h': 4, 'tag': 'udem', 'desc': "Stuff", 'unit': '10834'}]}, default_flow_style=False)
         # see  old sflf2t __init__.py at 49% (search REWRITE POINT)
-        pass
 
 
     def get_password(self, realm, prompt):
@@ -229,6 +231,26 @@ class Config(object):
     
         return res
     
+    def show_timesheet(self):
+        self.timesheet.sort(key=lambda x: x['date'])
+
+        count = 0
+        grouped_timesheet = self.get_grouped_timesheet()
+        total_hours = 0
+        for key, items in grouped_timesheet:
+            sum_hours = sum(x['hours'] for x in items)
+            total_hours += sum_hours
+            print "     ====== {0} ======".format(items[0].format_date())
+            for item in items:
+                count += 1
+                print " {0: >2}. {1}".format(count,
+                                             item.show().encode('utf-8'))
+                if item.metadata:
+                    print "             `-> %s" % item.metadata
+            if len(items) > 1:
+                print "     = %.2fh" % sum_hours
+        print "     ======"
+        print "     %.2f hours total" % total_hours
         
 
 class TimeEntry(OrderedDict):
@@ -260,6 +282,52 @@ class TimeEntry(OrderedDict):
             else:
                 subtree = subtree[key]
         return subtree
+
+    def __repr__(self):
+        out = []
+        for k, val in self.iteritems():
+            if isinstance(val, unicode):
+                val = val.encode('utf-8')
+            out.append("%s=%s" % (k, val))
+        return "<TimeEntry " + ', '.join(out) + ">"
+
+    metadata = None
+        
+    def show(self):
+        out = []
+
+        dt = self.copy()
+        dt.pop('date')
+        hours = dt.pop('hours')
+        tag = dt.pop('tag')
+        desc = dt.pop('desc')
+        unit = dt.pop('unit', None)
+
+        out.append("%.2fh " % hours)
+        if hours < 10:
+            out.append(" ")  # align hours and tags
+        out.append(tag)
+        if unit:
+            out.append(":%s" % unit)
+        out.append(", ")
+        out.append(desc)
+        if dt:
+            out.append(" (")
+            out.append(", ".join("%s=%s" % (k, v) for k, v in dt.iteritems()))
+            out.append(")")
+        return ''.join(out)
+        
+
+    def format_date(self):
+        date = self['date']
+        today = datetime.date.today()
+        delta = today - date
+        if delta.days:
+            delta_text = "%s days ago" % delta.days
+        else:
+            delta_text = "today"
+        return ("%s, %s" % (date.strftime("%d %b, %a"), delta_text)).lstrip('0')
+
 
         
 class Plugin(object):
