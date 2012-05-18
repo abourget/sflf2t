@@ -5,7 +5,7 @@ metadata."""
 
 plugin_name = "Hamster"
 
-def fetcher(config):
+def fetcher(config, args):
     pass
 
 def searcher(config, timesheet_entry):

@@ -4,10 +4,10 @@
 in my latest SENT mail
 """
 
-plugin_name = "IMAP Sent"
+plugin_name = "IMAP Sent box"
 
 def searcher(config, timesheet_element):
     pass
 
-def fetcher(config):
+def fetcher(config, args):
     pass

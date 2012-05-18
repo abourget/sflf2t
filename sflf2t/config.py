@@ -52,7 +52,7 @@ import argparse
 
 from sflf2t.core import (execute_add, execute_submit, execute_preview,
                          execute_edit, execute_fetch, execute_search,
-                         execute_merge, execute_split)
+                         execute_merge, execute_split, white, green)
 
 def load_plugins():
     # Loop entry points, create Plugin objects, and return the list
@@ -117,12 +117,16 @@ def get_command_line_parser(config, plugins):
     cmdparsers['fetch'].epilog = _plugins_parser_description(plugins,
                                                              'fetcher')
 
+    cmdparsers['search'].add_argument('plugins', nargs="*",
+                                      help="Search only these plugins")
+    cmdparsers['search'].epilog = _plugins_parser_description(plugins,
+                                                             'searcher')
     for plugin in plugins:
         plugin.add_subcommand('fetch', cmdparsers['fetch'])
         plugin.add_subcommand('preview', cmdparsers['preview'])
         plugin.add_subcommand('submit', cmdparsers['submit'])
         plugin.add_subcommand('search', cmdparsers['search'])        
-
+        
     return parser
 
 def _plugins_parser_description(plugins, operation):
@@ -306,7 +310,7 @@ class TimeEntry(OrderedDict):
         out.append("%.2fh " % hours)
         if hours < 10:
             out.append(" ")  # align hours and tags
-        out.append(tag)
+        out.append(green(tag, bold=True))
         if unit:
             out.append(":%s" % unit)
         out.append(", ")
@@ -337,7 +341,7 @@ class Plugin(object):
         self.is_searcher = hasattr(module, 'searcher')
         self.is_fetcher = hasattr(module, 'fetcher')
         submitter_vals = (hasattr(module, 'submitter_prepare'),
-                       hasattr(module, 'submitter_review'),
+                       hasattr(module, 'submitter_preview'),
                        hasattr(module, 'submitter_post'))
         if any(submitter_vals) and not all(submitter_vals):
             print "WARNING: module %s doesn't implement all the submitter functions (_prepare, _review and _submit)" % self.name
@@ -367,6 +371,9 @@ class Plugin(object):
             raise ValueError("feature should be 'searcher', 'submitter', "
                              "or 'fetcher'")
 
+    def execute_search(self, args):
+        return self.module.searcher(self.config, args)
+            
     def execute_preview(self, args):
         print "Previewing", args.plugins, self.module
         struct = self.module.submitter_prepare(self.config, args)
@@ -374,7 +381,12 @@ class Plugin(object):
 
     def execute_submit(self, args):
         struct = self.module.submitter_prepare(self.config, args)
-        return self.module.submitter_preview(struct)
+        self.module.submitter_preview(struct)
+        ans = raw_input("Confirm submission to %s [y/n] " % self.name)
+        if ans in ('y', 'Y', 'yes', 'Yes', 'YES'):
+            print "-> Submitting to %s" % self.name
+            return self.module.submitter_post(struct)
+        print "-> Submission aborted"
 
     def execute_fetch(self, args):
         return self.module.fetcher(self.config, args)

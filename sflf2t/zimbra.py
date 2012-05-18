@@ -18,7 +18,8 @@ def initialize(config, parser):
 
 def fetcher(config, args):
     cal = Cal(config)
-    cal.choose_week_span()
+    if not cal.choose_week_span():
+        return False
     cal.get_ics()
     cal.get_chosen_week_events()
     config.timesheet.extend(cal.events)
@@ -69,14 +70,18 @@ class Cal(object):
                }
         lab = {1: 'cette semaine',
                2: u'semaine dernière',
-               3: 'il y a deux semaines'}
+               3: 'il y a deux semaines',
+               }
 
         while True:
             print "Choisir une date:"
             for x in range(1,4):
                 print "  %s. Lundi %s (%s)" % (x, sel[str(x)].strftime('%Y-%m-%d'),
                                                lab[x])
+            print "  q. - Quitter -"
             choice = raw_input(">>> ")
+            if choice in ('q', 'Q'):
+                return False
             if choice in sel:
                 break
             print "Bad choice :)"
@@ -84,6 +89,7 @@ class Cal(object):
         monday = sel[choice]
         monday_time = datetime(monday.year, monday.month, monday.day, 0, 0, 0)
         self.chosen_week = (monday_time, monday_time + timedelta(7, -1))
+        return True
 
     def get_chosen_week_events(self):
         week_start, week_end = self.chosen_week

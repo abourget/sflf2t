@@ -9,6 +9,32 @@
 
 import os
 
+### Taken from fabric's color.py file, tweaked a little
+has_term = os.environ.get('COLORTERM')
+def _wrap_with(code):
+    def inner(text, bold=False):
+        c = code
+        if bold:
+            c = "1;%s" % c
+        return "\033[%sm%s\033[0m" % (c, text)
+    if has_term:
+        return inner
+    else:
+        return lambda x: x
+red = _wrap_with('31')
+green = _wrap_with('32')
+yellow = _wrap_with('33')
+blue = _wrap_with('34')
+magenta = _wrap_with('35')
+cyan = _wrap_with('36')
+white = _wrap_with('37')
+
+
+
+#
+# Main command line functions executers
+#
+
 def execute_add(config, args):
     menu_runner(config)
         
@@ -29,6 +55,9 @@ def execute_fetch(config, args):
 
 def execute_search(config, args):
     use_plugins = config.plugins_with_support('searcher', limit=args.plugins)
+    for plugin in use_plugins:
+        print "-> Searching with plugin %s" % plugin.short_name
+        plugin.execute_search(args)
 
 def execute_edit(config, args):
     from sflf2t.config import get_config_filename
@@ -51,6 +80,7 @@ def execute_split(config, args):
 #
 # Interactive menu
 #
+
 class BadArguments(Exception):
     """When bad arguments are passed as a menu answer."""
     pass
@@ -102,6 +132,7 @@ def menu_runner(config):
 def initial_menu(config, state):
     conf = [('a', 'Add an item', menu_add_item),
             ('e', 'Edit an item', menu_edit_item),
+            ('f', 'Fetch new items', menu_fetch_items),
             ('r', 'Remove items', menu_remove_items),
             ('c', 'Clear timesheet', menu_clear_items),
             ('m', 'Merge items', menu_merge_items),
@@ -136,6 +167,22 @@ def get_indexes_from_timesheet(config, state):
 def menu_save_quit(config, state):
     config.write_back()
     return None
+
+def menu_fetch_items(config, state):
+    args = state.get('args')
+    plugins = config.plugins_with_support('fetcher')
+    if not args:
+        print "Use 'fetch' with one of these options:"
+        print "  all - All plugins"
+        for plugin in plugins:
+            print "  %s - %s" % (plugin.short_name, plugin.name)
+        return initial_menu
+    
+    for plugin in plugins:
+        print "-> Executing 'fetch' for %s" % plugin.name
+        plugin.execute_fetch([])
+
+    return initial_menu
 
 def menu_add_item(config, state):
     date = raw_input("Date: ")

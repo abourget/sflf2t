@@ -6,14 +6,14 @@ searching for client numbers and whatnot.
 
 plugin_name = 'Private'
 
-def submitter_prepare(config):
+def submitter_prepare(config, args):
     pass
 
-def submitter_review(content):
+def submitter_preview(content, args):
     pass
     
-def submitter_post(content):
+def submitter_post(content, args):
     pass
 
-def fetcher(config):
+def fetcher(config, args):
     pass

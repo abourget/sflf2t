@@ -9,7 +9,7 @@ plugin_name = 'Redmine'
 def submitter_prepare(config):
     pass
 
-def submitter_review(content):
+def submitter_preview(content):
     pass
 
 def submitter_post(content):
