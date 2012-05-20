@@ -16,6 +16,30 @@ def initialize(config, parser):
     # TODO: do some init on different parsers, etc..
     pass
 
+
+def searcher(config, args):
+    import imaplib
+    import email
+    from email.header import decode_header
+    srv = imaplib.IMAP4_SSL('zimbra.savoirfairelinux.com')
+    srv.login('alexandre.bourget', config.get_password('zimbra', "Zimbra password:"))
+    #srv.select('Envoy&AOk-', readonly=True)
+    srv.select('Sent', readonly=True)
+    
+    typ, data = srv.search('utf-8', '(SENTON 18-May-2012)')
+    
+    for num in data[0].split():
+        print "Getting num"
+        typ, data = srv.fetch(num, '(RFC822)')
+        msg = email.message_from_string(data[0][1])
+        for header in ('subject', 'to', 'from'):
+            print "STUFF: %s %s" % (header.upper(),
+                                    decode_header(msg[header])[0][0])
+        import pdb;pdb.set_trace()
+    srv.close()
+    srv.logout()
+    
+
 def fetcher(config, args):
     cal = Cal(config)
     if not cal.choose_week_span():
