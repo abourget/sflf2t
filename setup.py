@@ -8,7 +8,9 @@ from setuptools import setup, find_packages
 #CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 
 requires = [
-    #  install with pip install -r requirements.freeze
+    "vobject",
+    "requests",
+    "pyyaml",
     ]
 
 setup(name='SFLF2T',

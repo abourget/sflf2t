@@ -34,7 +34,6 @@ def searcher(config, args):
         for header in ('subject', 'to', 'from'):
             print "STUFF: %s %s" % (header.upper(),
                                     decode_header(msg[header])[0][0])
-        import pdb;pdb.set_trace()
     srv.close()
     srv.logout()
     
