@@ -44,8 +44,6 @@ def main():
     functions = ('add', 'resolve', 'edit', 'split', 'merge', 'fetch',
                  'preview', 'submit')
 
-    print args.cmd_func, args.command
-
     if not args.command:
         print "Commands:", functions
         sys.exit(1)

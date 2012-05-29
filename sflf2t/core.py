@@ -41,6 +41,8 @@ def execute_add(config, args):
 
 def execute_submit(config, args):
     use_plugins = config.plugins_with_support('submitter', limit=args.plugins)
+    for plugin in use_plugins:
+        plugin.execute_submit(args)
 
 def execute_preview(config, args):
     use_plugins = config.plugins_with_support('submitter', limit=args.plugins)

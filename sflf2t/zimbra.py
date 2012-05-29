@@ -23,7 +23,6 @@ def searcher(config, args):
     from email.header import decode_header
     srv = imaplib.IMAP4_SSL('zimbra.savoirfairelinux.com')
     srv.login('alexandre.bourget', config.get_password('zimbra', "Zimbra password:"))
-    #srv.select('Envoy&AOk-', readonly=True)
     srv.select('Sent', readonly=True)
     
     typ, data = srv.search('utf-8', '(SENTON 18-May-2012)')
@@ -123,7 +122,6 @@ class Cal(object):
             if type(starttz) is date:
                 continue         # Full-day event
             start = starttz.replace(tzinfo=None)
-            print start
             if week_start < start and week_end > start:
                 events.append(vevent)
 

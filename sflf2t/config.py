@@ -39,7 +39,7 @@ timesheet:
       desc: MyEvent et autres choses
     - hours: 5
       tag: udem
-      unit: #10834 or 10824 or RM10824
+      unit: 10824 or RM10824
       desc: Ticket qu'il y avait à faire
 
 """
@@ -165,18 +165,36 @@ class Config(object):
         the config and tag sections.
         """
         res = self.get_grouped_timesheet()
-        out = yaml.dump(res, default_flow_style=False)
         old_config = open(self.filename).readlines()
 
         rewrite = old_config[:]
         for i, line in enumerate(old_config):
             if 'REWRITE POINT' in line:
-                rewrite = old_config[:1]
+                rewrite = old_config[:i+1]
                 break
         if rewrite == old_config:
-            rewrite.append(u'# --- REWRITE POINT --- Anything after this line can be rewritten\n')
+            rewrite.append('# --- REWRITE POINT --- Anything after this line can be rewritten\n')
+
+        first_fields = ('hours', 'tag', 'desc', 'unit', 'date')
+        out = [u"timesheet:\n"]
+        for group, entries in res:
+            out.append(u"  %s:\n" % group.strftime("%Y-%m-%d"))
+            for entry in entries:
+                out.append(u"   - hours: %s\n" % entry['hours'])
+                out.append(u"     tag: %s\n" % entry['tag'])
+                if 'unit' in entry:
+                    out.append(u"     unit: %s\n" % entry['unit'])
+                if entry.get('desc'):
+                    out.append(u"     desc: %s\n" % entry['desc'])
+                    
+                for other_field in entry:
+                    if other_field not in first_fields:
+                        out.append(u"     %s: %s\n" % (other_field,
+                                                       entry[other_field]))
             
-        new_config = ''.join(rewrite) + "#\n" + out
+        new_config = ''.join(rewrite) + "#\n" + \
+                     (u''.join(out).encode('utf-8'))
+
         open(self.filename, 'w').write(new_config)
 
         return True
@@ -222,12 +240,17 @@ class Config(object):
                 subtree = subtree[key]
         return subtree
 
-    def get_override(self, dotted_key, timesheet, default=None):
-        """Get a value from the configuration, that might
-        be overridden by a timesheet."""
+    def get_cascade(self, dotted_key, timesheet, default=None):
+        """Get a value from the configuration, searching first the TimeEntry
+        object, then falling back to the Tag and at last, the main 'config'
+        section.
+        """
         out = timesheet.get(dotted_key)
         if out is None:
-            out = self.get(dotted_key, prefix="config")
+            out = self.get('%s.%s' % (timesheet['tag'].lower(), dotted_key),
+                           prefix="tags")
+        if out is None:
+            out = self.get(dotted_key, prefix="config", default=default)
         return out
 
     def plugins_with_support(self, feature, limit=None):
@@ -314,7 +337,7 @@ class TimeEntry(OrderedDict):
         dt.pop('date')
         hours = dt.pop('hours')
         tag = dt.pop('tag')
-        desc = dt.pop('desc')
+        desc = dt.pop('desc', None)
         unit = dt.pop('unit', None)
 
         out.append("%.2fh " % hours)
@@ -324,7 +347,7 @@ class TimeEntry(OrderedDict):
         if unit:
             out.append(":%s" % unit)
         out.append(", ")
-        out.append(desc)
+        out.append(desc or "[ - no desc - ]")
         if dt:
             out.append(" (")
             out.append(", ".join("%s=%s" % (k, v) for k, v in dt.iteritems()))
@@ -385,7 +408,9 @@ class Plugin(object):
         return self.module.searcher(self.config, args)
             
     def execute_preview(self, args):
-        print "Previewing", args.plugins, self.module
+        print "###"
+        print "### Previewing", self.module.plugin_name, "submission"
+        print "###"
         struct = self.module.submitter_prepare(self.config, args)
         return self.module.submitter_preview(self.config, args, struct)
 
