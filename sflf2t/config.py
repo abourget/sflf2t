@@ -9,8 +9,9 @@ config:
     login: alexandre.bourget
     ics: https://mail.savoirfairelinux.com/home/alexandre.bourget@savoirfairelinux.com/Calendar
   private:
+    agent_id: 67
     login: abourget
-    url: https://private.savoirfairelinux.com
+    f2t_url: https://private.savoirfairelinux.com/f2t-ym.php
   redmine:
     login: abourget
     url: https://projects.savoirfairelinux.com
@@ -164,12 +165,21 @@ class Config(object):
         the config and tag sections.
         """
         res = self.get_grouped_timesheet()
-        from pprint import pprint
-        pprint(res)
-        # dump in YAML,
-        # rewrite in filename at REWRITE POINT
-        # yaml.dump({may: [{'h': 3, 'tag': 'vente', 'desc': u"Hey c'est cool ça", "unit": "Bob"}, {'h': 4, 'tag': 'udem', 'desc': "Stuff", 'unit': '10834'}]}, default_flow_style=False)
-        # see  old sflf2t __init__.py at 49% (search REWRITE POINT)
+        out = yaml.dump(res, default_flow_style=False)
+        old_config = open(self.filename).readlines()
+
+        rewrite = old_config[:]
+        for i, line in enumerate(old_config):
+            if 'REWRITE POINT' in line:
+                rewrite = old_config[:1]
+                break
+        if rewrite == old_config:
+            rewrite.append(u'# --- REWRITE POINT --- Anything after this line can be rewritten\n')
+            
+        new_config = ''.join(rewrite) + "#\n" + out
+        open(self.filename, 'w').write(new_config)
+
+        return True
 
 
     def get_password(self, realm, prompt):
@@ -377,15 +387,15 @@ class Plugin(object):
     def execute_preview(self, args):
         print "Previewing", args.plugins, self.module
         struct = self.module.submitter_prepare(self.config, args)
-        return self.module.submitter_preview(struct)
+        return self.module.submitter_preview(self.config, args, struct)
 
     def execute_submit(self, args):
         struct = self.module.submitter_prepare(self.config, args)
-        self.module.submitter_preview(struct)
+        self.module.submitter_preview(self.config, args, struct)
         ans = raw_input("Confirm submission to %s [y/n] " % self.name)
         if ans in ('y', 'Y', 'yes', 'Yes', 'YES'):
             print "-> Submitting to %s" % self.name
-            return self.module.submitter_post(struct)
+            return self.module.submitter_post(self.config, args, struct)
         print "-> Submission aborted"
 
     def execute_fetch(self, args):
