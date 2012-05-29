@@ -34,10 +34,10 @@ tags:
 #
 timesheet:
   2012-05-05:
-    - h: 3
+    - hours: 3
       tag: vente
       desc: MyEvent et autres choses
-    - h: 5
+    - hours: 5
       tag: udem
       unit: #10834 or 10824 or RM10824
       desc: Ticket qu'il y avait à faire
